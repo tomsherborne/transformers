@@ -886,6 +886,7 @@ class BartModel(PretrainedBartModel):
 
         # make masks if user doesn't supply
         if not use_cache:
+
             decoder_input_ids, decoder_padding_mask, causal_mask = _prepare_bart_decoder_inputs(
                 self.config,
                 input_ids,
