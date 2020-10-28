@@ -20,6 +20,7 @@ from torch.utils.data import Dataset, Sampler
 
 from sentence_splitter import add_newline_to_end_of_each_sentence
 from transformers import BartTokenizer, EvalPrediction, PreTrainedTokenizer, T5Tokenizer
+from transformers.data.metrics.squad_metrics import compute_exact
 from transformers.file_utils import cached_property
 from transformers.modeling_bart import shift_tokens_right
 
@@ -88,7 +89,19 @@ def build_compute_metrics_fn(task_name: str, tokenizer: PreTrainedTokenizer) -> 
         bleu.update({"gen_len": gen_len})
         return bleu
 
-    compute_metrics_fn = summarization_metrics if "summarization" in task_name else translation_metrics
+    def semparse_metrics(pred: EvalPrediction) -> Dict:
+        pred_str, label_str = decode_pred(pred)
+        bleu: Dict = calculate_bleu(pred_str, label_str)
+        gen_len = np.round(np.mean(lmap(non_pad_len, pred.predictions)), 1)
+        seq_acc = np.round(np.mean(lmap(compute_exact, (pred_str, label_str))), 4)
+        bleu.update({"gen_len": gen_len})
+        bleu.update({"seq_acc": seq_acc})
+
+    # compute_metrics_fn = summarization_metrics if "summarization" in task_name else translation_metrics
+    metrics_fns = {"summarization": summarization_metrics,
+                   "translation": translation_metrics,
+                   "semparse": semparse_metrics}
+    compute_metrics_fn = metrics_fns[task_name]
     return compute_metrics_fn
 
 
